@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js"></script>
+    <link rel="stylesheet" href="css/index.css">
+  </head>
+  <body>
+
+    <div id="loader-overlay" class="loader-overlay hidden">
+      <div class="spinner-wrap">
+        <div class="spinner-track"></div>
+        <div class="spinner-arc"></div>
+      </div>
+      <div class="loader-text-wrap">
+        <p id="loader-text" class="loader-text">Loading missed chats...</p>
+      </div>
+    </div>
+
+    <div class="widget-card">
+
+      <div class="widget-header">
+        <h1 class="widget-title">
+          <span id="missed-count" class="missed-badge">--</span> Missed Chats in <span class="highlight-salesiq">SalesIQ</span>
+        </h1>
+      </div>
+
+      <div id="chat-list" class="chat-list"></div>
+
+      <div id="empty-state" class="empty-state hidden">
+        <p class="empty-title">No missed chats</p>
+        <p class="empty-subtitle">Every conversation was picked up.</p>
+      </div>
+
+    </div>
+
+    <div class="popup-overlay hidden" id="popup" data-status="">
+      <div class="popup-box">
+        <div id="statusIcon" class="status-icon"></div>
+        <h3 id="popupTitle" class="popup-title">Notification</h3>
+        <p id="popupMessage" class="popup-message"></p>
+        <button type="button" class="close-btn" id="closeBtn" onclick="ZOHO.CRM.UI.Popup.close()">Close</button>
+      </div>
+    </div>
+
+    <script src="js/app.js"></script>
+  </body>
+</html>
