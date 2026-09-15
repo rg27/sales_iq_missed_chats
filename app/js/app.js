@@ -5,44 +5,58 @@ const SELECTORS = {
     loaderText: "loader-text"
 };
 
-// Portal name used to build the SalesIQ conversation link.
 const SALESIQ_PORTAL = "tradelicensezone";
-const FUNCTION_NAME = "salesiq_missed_chat_flyout"; // must match the Deluge function's API name
+const FUNCTION_NAME = "salesiq_missed_chat_flyout";
+const SNOOZE_FUNCTION_NAME = "missed_chat_flyout_delay";
+
+let currentUserInfo = { id: "", name: "" };
 
 ZOHO.embeddedApp.on("PageLoad", async (entity) => {
     const loader = document.getElementById("loader-overlay");
     if (loader) loader.classList.remove("hidden");
 
-    console.log("RAW PageLoad Entity Object:", entity);
-
     try {
-        // Function takes no arguments now — filtering happens server-side.
-        const response = await ZOHO.CRM.FUNCTIONS.execute(FUNCTION_NAME, {});
-        console.log("Function response:", response);
+        // Fetch current user details via ZDK/Config
+        const userConfig = await ZOHO.CRM.CONFIG.getCurrentUser();
+        console.log("[User Info] Raw config response:", userConfig);
 
+        if (userConfig) {
+            // Handle different possible response structures from Zoho SDK
+            const userData = userConfig.users ? userConfig.users[0] : (userConfig.Users ? userConfig.Users[0] : userConfig);
+            if (userData) {
+                currentUserInfo.id = userData.id || userData.user_id || "";
+                currentUserInfo.name = userData.full_name || `${userData.first_name || ""} ${userData.last_name || ""}`.trim() || userData.name || "";
+            }
+        }
+        console.log("[User Info] Resolved current user:", currentUserInfo);
+
+        const response = await ZOHO.CRM.FUNCTIONS.execute(FUNCTION_NAME, {});
         const details = response.details || response._details;
         if (!details || !details.output) {
             throw new Error("No data returned from SalesIQ function.");
         }
 
         const rawOutput = details.output;
-        console.log("[Missed Chats] Raw output type:", typeof rawOutput, "Data:", rawOutput);
-
         let jsonString = (typeof rawOutput === "string") ? rawOutput.trim() : JSON.stringify(rawOutput);
         if (typeof rawOutput === "string" && !jsonString.startsWith("[")) {
             jsonString = `[${jsonString}]`;
         }
 
         const missedChats = JSON.parse(jsonString);
-        console.log("[Missed Chats] Parsed OK. Count:", missedChats.length);
-
         if (!Array.isArray(missedChats)) {
             throw new Error("Unexpected data shape returned from SalesIQ function.");
         }
 
-        renderChats(missedChats);
-        console.log("[Missed Chats] renderChats() called successfully.");
+        if (missedChats.length === 0) {
+            console.log("[Missed Chats] No missed chats found. Automatically closing widget.");
+            if (loader) loader.classList.add("hidden");
+            if (typeof $Client !== 'undefined' && typeof $Client.close === 'function') {
+                $Client.close();
+            }
+            return;
+        }
 
+        renderChats(missedChats);
         if (loader) loader.classList.add("hidden");
 
     } catch (err) {
@@ -53,19 +67,46 @@ ZOHO.embeddedApp.on("PageLoad", async (entity) => {
 
 ZOHO.embeddedApp.init();
 
+document.addEventListener("change", async (event) => {
+    if (event.target && event.target.id === "snoozeSelect") {
+        const duration = parseInt(event.target.value, 10);
+        if (!isNaN(duration)) {
+            console.log(`[Snooze] User selected snooze duration: ${duration}`);
+            
+            try {
+                const snoozePayload = {
+                    "arguments": JSON.stringify({
+                        "snooze_duration": duration.toString(),
+                        "user_id": currentUserInfo.id.toString(),
+                        "user_name": currentUserInfo.name
+                    })
+                };
+                
+                console.log(`[Snooze] Executing ${SNOOZE_FUNCTION_NAME} with payload:`, snoozePayload);
+
+                const snoozeResponse = await ZOHO.CRM.FUNCTIONS.execute(SNOOZE_FUNCTION_NAME, snoozePayload);
+                
+                console.log("[Snooze] Function execution result:", snoozeResponse);
+                console.log("[Snooze] Backend update triggered successfully.");
+
+            } catch (err) {
+                console.error("[Snooze] Failed to trigger snooze function:", err);
+            }
+
+            if (typeof $Client !== 'undefined' && typeof $Client.close === 'function') {
+                console.log("[Snooze] Closing flyout...");
+                $Client.close({ snooze_duration: duration });
+            }
+        }
+    }
+});
+
 function renderChats(chats) {
     const list = document.getElementById("chat-list");
     const emptyState = document.getElementById("empty-state");
     const countEl = document.getElementById("missed-count");
 
-    console.log("[Missed Chats] renderChats() — elements found:", {
-        list: !!list,
-        emptyState: !!emptyState,
-        countEl: !!countEl
-    });
-    console.log("[Missed Chats] Rendering", chats.length, "row(s).");
-
-    countEl.textContent = chats.length + " missed";
+    countEl.textContent = chats.length;
 
     if (!chats.length) {
         list.innerHTML = "";
@@ -97,7 +138,13 @@ function buildRowHtml(chat) {
                         <span class="chat-phone">${escapeHtml(phone)}</span>
                         <span class="chat-time">${time}</span>
                     </div>
-                    <a href="${link}" target="_blank" rel="noopener" class="chat-view">View</a>
+                    <a href="${link}" target="_blank" rel="noopener" class="chat-reply">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 17 4 12 9 7"></polyline>
+                            <path d="M20 18v-2a4 4 0 0 0-4-4H4"></path>
+                        </svg>
+                        Reply
+                    </a>
                 </div>
             </div>
         </div>

@@ -22,8 +22,17 @@
 
       <div class="widget-header">
         <h1 class="widget-title">
-          <span id="missed-count" class="missed-badge">--</span> Missed Chats in <span class="highlight-salesiq">SalesIQ</span>
+          <span id="missed-count" class="missed-badge">--</span> Chats in <span class="highlight-salesiq">SalesIQ</span>
         </h1>
+        <div class="snooze-container">
+            <select id="snoozeSelect" class="snooze-select" title="Snooze widget">
+                <option value="" disabled selected>Snooze...</option>
+                <option value="2">2 mins</option>
+                <option value="5">5 mins</option>
+                <option value="7">7 mins</option>
+                <option value="10">10 mins</option>
+            </select>
+        </div>
       </div>
 
       <div id="chat-list" class="chat-list"></div>
